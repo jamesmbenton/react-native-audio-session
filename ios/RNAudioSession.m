@@ -59,16 +59,13 @@ RCT_EXPORT_METHOD(category:(RCTResponseSenderBlock)callback)
     }
 }
 
-RCT_EXPORT_METHOD(options:(RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(options:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 {
     NSUInteger options = [AVAudioSession sharedInstance].categoryOptions;
-    NSArray *temp = [_options allKeysForObject:@(options)];
-    NSString *key = [temp lastObject];
-    if (key) {
-        callback(@[key]);
-    } else {
-        callback(@[]);
-    }
+    NSLog(@"Current audio session options bitmask %lu", options);
+    NSArray *optionsArray = [self convertOptionsBitmaskToArray: options];
+    resolve(optionsArray);
+
 }
 
 RCT_EXPORT_METHOD(mode:(RCTResponseSenderBlock)callback)
@@ -94,13 +91,14 @@ RCT_EXPORT_METHOD(setActive:(BOOL)active resolver:(RCTPromiseResolveBlock)resolv
     }
 }
 
-RCT_EXPORT_METHOD(setCategory:(NSString *)category options:(NSString *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXPORT_METHOD(setCategory:(NSString *)category options:(NSArray *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 {
     NSString* cat = _categories[category];
+    
     if (cat != nil && [[AVAudioSession sharedInstance].availableCategories containsObject:cat]) {
         NSError *error = nil;
-        if (_options[options] != nil) {
-            [[AVAudioSession sharedInstance] setCategory:cat withOptions:[_options[options] integerValue] error:&error];
+        if (options != nil) {
+            [[AVAudioSession sharedInstance] setCategory:cat withOptions: [self convertOptionsToBitmask: options] error:&error];
         } else {
             [[AVAudioSession sharedInstance] setCategory:cat error:&error];
         }
@@ -111,14 +109,15 @@ RCT_EXPORT_METHOD(setCategory:(NSString *)category options:(NSString *)options r
         }
     } else {
         NSDictionary *userInfo = @{
-            NSLocalizedDescriptionKey: @"Could not set AVAudioSession category.",
-            NSLocalizedFailureReasonErrorKey: @"The given category is not supported on this device.",
-            NSLocalizedRecoverySuggestionErrorKey: @"Try another category."
-        };
+                                   NSLocalizedDescriptionKey: @"Could not set AVAudioSession category.",
+                                   NSLocalizedFailureReasonErrorKey: @"The given category is not supported on this device.",
+                                   NSLocalizedRecoverySuggestionErrorKey: @"Try another category."
+                                   };
         NSError *error = [NSError errorWithDomain:@"RNAudioSession" code:-1 userInfo:userInfo];
         reject(@"setCategory", @"Could not set category.", error);
     }
 }
+
 
 RCT_EXPORT_METHOD(setMode:(NSString *)mode resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 {
@@ -142,13 +141,15 @@ RCT_EXPORT_METHOD(setMode:(NSString *)mode resolver:(RCTPromiseResolveBlock)reso
     }
 }
 
-RCT_EXPORT_METHOD(setCategoryAndMode:(NSString *)category mode:(NSString *)mode options:(NSString *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXPORT_METHOD(setCategoryAndMode:(NSString *)category mode:(NSString *)mode options:(NSArray *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 {
     NSString* cat = _categories[category];
     NSString* mod = _modes[mode];
-    if (cat != nil && mod != nil && _options[options] != nil && [[AVAudioSession sharedInstance].availableCategories containsObject:cat] && [[AVAudioSession sharedInstance].availableModes containsObject:mod]) {
+    if (cat != nil && mod != nil && options != nil && [[AVAudioSession sharedInstance].availableCategories containsObject:cat] && [[AVAudioSession sharedInstance].availableModes containsObject:mod]) {
         NSError *error = nil;
-        [[AVAudioSession sharedInstance] setCategory:cat mode:mod options:[_options[options] integerValue] error:&error];
+        NSUInteger optionsArg = [self convertOptionsToBitmask: options];
+        [[AVAudioSession sharedInstance] setCategory:cat mode:mod options: optionsArg error:&error];
+        
         if (error) {
             reject(@"setCategoryAndMode", @"Could not set category and mode.", error);
         } else {
@@ -163,6 +164,39 @@ RCT_EXPORT_METHOD(setCategoryAndMode:(NSString *)category mode:(NSString *)mode 
         NSError *error = [NSError errorWithDomain:@"RNAudioSession" code:-1 userInfo:userInfo];
         reject(@"setCategoryAndMode", @"Could not set category and mode.", error);
     }
+}
+
+-(NSUInteger) convertOptionsToBitmask:(NSArray *) array  {
+    
+    NSUInteger bitmask = 0x0;
+    
+    for (int i = 0; i < [array count]; i++)
+    {
+        NSString *key = array[i];
+        NSNumber *value = [_options objectForKey:key];
+        if(value != nil) {
+            bitmask = bitmask | [value unsignedIntegerValue];
+        }
+    }
+    
+    NSLog(@"Audio session options array to bitmask: %lu", bitmask);
+    //NSLog(@"Test audio session options array to bitmask %lu", AVAudioSessionCategoryOptionAllowBluetooth | AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetoothA2DP);
+    return bitmask;
+}
+
+-(NSArray *) convertOptionsBitmaskToArray:(NSUInteger) options  {
+    
+    NSMutableArray *array = [NSMutableArray array];
+    
+    for(id key in _options) {
+        NSNumber *option = [_options objectForKey:key];
+        NSUInteger optionInt = [option unsignedIntegerValue];
+        
+        if((optionInt & options) == optionInt) {
+            [array addObject: key];
+        }
+    }
+    return array;
 }
 
 @end

@@ -67,7 +67,7 @@ const setActive = (active: boolean): Promise<void> =>
 
 const setCategory = (
   category: AudioCategory,
-  options?: AudioCategoryOptions
+  options?: AudioCategoryOptions[]
 ): Promise<void> => RNAudioSession.setCategory(category, options)
 
 const setMode = (mode: AudioMode): Promise<void> => RNAudioSession.setMode(mode)
@@ -75,7 +75,7 @@ const setMode = (mode: AudioMode): Promise<void> => RNAudioSession.setMode(mode)
 const setCategoryAndMode = (
   category: AudioCategory,
   mode: AudioMode,
-  options?: AudioCategoryOptions
+  options?: AudioCategoryOptions[]
 ): Promise<void> => RNAudioSession.setCategoryAndMode(category, mode, options)
 
 const AudioSession = {
